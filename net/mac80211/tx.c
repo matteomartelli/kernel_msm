@@ -34,6 +34,10 @@
 #include "wme.h"
 #include "rate.h"
 
+/* ABPS */
+#include <net/ip.h>
+#include "ABPS_mac80211.h"
+
 /* misc utils */
 
 static __le16 ieee80211_duration(struct ieee80211_tx_data *tx,
@@ -848,6 +852,18 @@ ieee80211_tx_h_sequence(struct ieee80211_tx_data *tx)
 
 	/* Increase the sequence number. */
 	*seq = (*seq + 0x10) & IEEE80211_SCTL_SEQ;
+
+	/* ABPS */
+	if (tx->skb && required_ip_local_error_notify(tx->skb->sk)) {
+		if (ABPS_extract_pkt_info_with_skb(hdr, tx->skb)) {
+			printk(KERN_NOTICE "TED: added new datagram with id %d\n",
+			       tx->skb->sk_buff_identifier);
+		else
+			printk(KERN_NOTICE "TED: can't add new datagram with id %d\n",
+			       tx->skb->sk_buff_identifier);
+	}
+	/* end ABPS */
+
 
 	return TX_CONTINUE;
 }

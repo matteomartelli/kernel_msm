@@ -18,6 +18,8 @@ struct __kernel_sockaddr_storage {
 				/* _SS_MAXSIZE value minus size of ss_family */
 } __attribute__ ((aligned(_K_SS_ALIGNSIZE)));	/* force desired alignment */
 
+#define ABPS_CMSG_TYPE 111 /* ABPS */
+
 #ifdef __KERNEL__
 
 #include <asm/socket.h>			/* arch-dependent defines	*/
@@ -88,6 +90,12 @@ struct cmsghdr {
         int		cmsg_level;	/* originating protocol */
         int		cmsg_type;	/* protocol-specific type */
 };
+
+/* ABPS */
+typedef uint32_t __user * USER_P_UINT32;
+extern int udp_cmsg_send(struct msghdr *msg, uint32_t *is_identifier_required,
+                         USER_P_UINT32 *pointer_to_identifier);
+/* end ABPS */
 
 /*
  *	Ancillary data object information MACROS

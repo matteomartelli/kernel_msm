@@ -969,6 +969,12 @@ int udpv6_sendmsg(struct kiocb *iocb, struct sock *sk,
 	int is_udplite = IS_UDPLITE(sk);
 	int (*getfrag)(void *, char *, int, int, int, struct sk_buff *);
 
+	/* ABPS */
+	struct sk_buff *skb;
+	USER_P_UINT32 pointer_to_identifier = NULL;
+	uint32_t is_identifier_required = 0;
+	/* end ABPS */
+
 	/* destination address check */
 	if (sin6) {
 		if (addr_len < offsetof(struct sockaddr, sa_data))
@@ -1090,6 +1096,15 @@ do_udp_sendmsg:
 	fl6.flowi6_uid = sock_i_uid(sk);
 
 	if (msg->msg_controllen) {
+		/* ABPS */
+		err = udp_cmsg_send(msg, &is_identifier_required, &pointer_to_identifier);
+		if (err) {
+			printk(KERN_NOTICE "udp_cmsg_send return err\n");
+			return err;
+		}
+		/* end ABPS */
+
+
 		opt = &opt_space;
 		memset(opt, 0, sizeof(struct ipv6_txoptions));
 		opt->tot_len = sizeof(*opt);
@@ -1209,6 +1224,14 @@ do_append_data:
 		err = np->recverr ? net_xmit_errno(err) : 0;
 	release_sock(sk);
 out:
+
+	/* ABPS */
+	/* Set the identifier in user space */
+	if (is_identifier_required && skb)
+		put_user(skb->sk_buff_identifier, pointer_to_identifier);
+
+	/* end ABPS */
+
 	dst_release(dst);
 	fl6_sock_release(flowlabel);
 	if (!err)

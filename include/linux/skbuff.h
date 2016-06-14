@@ -495,6 +495,8 @@ struct sk_buff {
 				*data;
 	unsigned int		truesize;
 	atomic_t		users;
+
+	uint32_t sk_buff_identifier; /* ABPS */
 };
 
 #ifdef __KERNEL__
@@ -2560,5 +2562,8 @@ static inline bool skb_is_recycleable(const struct sk_buff *skb, int skb_size)
 
 	return true;
 }
+
+int set_identifier_with_sk_buff(struct sk_buff *skb); /* ABPS */
+
 #endif	/* __KERNEL__ */
 #endif	/* _LINUX_SKBUFF_H */

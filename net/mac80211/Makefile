@@ -25,7 +25,8 @@ mac80211-y := \
 	wme.o \
 	event.o \
 	chan.o \
-	driver-trace.o mlme.o
+	driver-trace.o mlme.o \
+	ABPS_mac80211.o
 
 mac80211-$(CONFIG_MAC80211_LEDS) += led.o
 mac80211-$(CONFIG_MAC80211_DEBUGFS) += \

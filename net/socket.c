@@ -3378,3 +3378,45 @@ int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how)
 	return sock->ops->shutdown(sock, how);
 }
 EXPORT_SYMBOL(kernel_sock_shutdown);
+
+/* ABPS */
+int udp_cmsg_send(struct msghdr *msg, uint32_t *is_identifier_required,
+                  USER_P_UINT32 *pointer_to_identifier)
+{
+	struct cmsghdr *cmsg;
+	*is_identifier_required = 0;
+	
+	if (pointer_to_identifier == NULL) {
+		printk(KERN_NOTICE "TED: null pointer_to_identifier in udp_cmsg_send\n");
+		return -EFAULT;
+	}
+
+	for (cmsg=CMGS_FIRSTHDR(msg); cmsg; cmsg=CMSG_NXTHDR(msg, cmsg)) {
+		
+		if (!CMSG_OK(msg, cmsg)) {
+			printk(KERN_NOTICE "TED: CMSG not OK in udp_cmsg_send\n");
+			return -EINVAL;
+		}
+
+		if (cmsg->cmsg_level != SOL_UDP)
+			continue;
+
+		if (cmsg->cmsg_type == ABPS_CMGS_TYPE) {
+			
+			memcpy(pointer_to_identifier, (USER_P_UINT32)CMSG_DATA(cmsg),
+			       sizeof(USER_P_UINT32));
+
+			printk(KERN_NOTICE "udp_cmsg_send:"
+			       "pointer_to_identifier just set to %p\n", pointer_to_identifier);
+
+
+			*is_identifier_required = 1;
+
+			return 0;
+		}
+	}
+	return 0;
+}
+
+EXPORT_SYMBOL(udp_cmsg_send);
+/* end ABPS */

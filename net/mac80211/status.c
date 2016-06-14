@@ -19,6 +19,26 @@
 #include "led.h"
 #include "wme.h"
 
+/* ABPS */
+#include <net/ip.h>
+#include "ABPS_mac80211.h"
+
+/*Developed by Lorenzo Sorace and VIC, may 2009 */
+static void (*ABPSmonitor_statistic_handler)(
+                                             struct ieee80211_hw *hw,
+                                             struct sta_info *sta,
+                                             struct ieee80211_hdr *hdr,
+                                             struct ieee80211_tx_info *info,
+                                             struct ieee80211_local *local) = NULL;
+
+void ABPSmonitor_set_handler(void * ptr)
+{
+    ABPSmonitor_statistic_handler = ptr;
+}
+
+EXPORT_SYMBOL(ABPSmonitor_set_handler);
+/* end ABPS */
+
 
 void ieee80211_tx_status_irqsafe(struct ieee80211_hw *hw,
 				 struct sk_buff *skb)
@@ -499,6 +519,27 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 		if (ieee80211_is_first_frag(hdr->seq_ctrl))
 			local->dot11FailedCount++;
 	}
+	
+	/* ABPS */
+	/* tell the ABPS module to merge the response status infos
+	 * with the previous collected frame infos */
+	if (skb && skb->dev && required_ip_local_error_notify(skb->sk)) {
+		struct ieee80211_hdr *hdr = NULL;
+		int ret;
+		sdata = IEEE80211_DEV_TO_SUB_ID(skb->dev);
+		if (sdata) {
+			hdr = (struct ieee80211_hdr *) skb->data;
+			ret = ABPS_info_response(skb->sk, hw, hdr, info, sdata);
+			printk(KERN_DEBUG "ABPS ieee80211_tx_status:"
+			       "ABPS_info_respose value %d \n", ret);
+		} else {
+			printk(KERN_NOTICE "TED ieee80211_tx_status: null sdata\n");
+		}
+		sdata = NULL;
+	} else if (skb->dev == NULL) {
+		printk(KERN_NOTICE "TED ieee80211_tx_status: null skb->dev\n");
+	}	
+	/* end ABPS */
 
 	if (ieee80211_is_nullfunc(fc) && ieee80211_has_pm(fc) &&
 	    (local->hw.flags & IEEE80211_HW_REPORTS_TX_ACK_STATUS) &&

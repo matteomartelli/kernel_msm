@@ -556,6 +556,11 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
 				iph = ip_hdr(frag);
 				iph->tot_len = htons(frag->len);
 				ip_copy_metadata(frag, skb);
+				
+				/* ABPS */
+				frag->sk_buff_identifier = skb->sk_buff_identifier;
+				/* end ABPS */
+
 				if (offset == 0)
 					ip_options_fragment(frag);
 				offset += skb->len - hlen;
@@ -664,6 +669,13 @@ slow_path:
 		 */
 
 		skb_copy_from_linear_data(skb, skb_network_header(skb2), hlen);
+		
+		/* ABPS */
+		/* Copy the msg identifier to the new packet */
+		skb2->sk_buff_identifier = skb->sk_buff_identifier;
+		printk(KERN_NOTICE "TED: new fragment with msg id: %d\n",
+		       skb2->sk_buff_identifier);
+		/* end ABPS */
 
 		/*
 		 *	Copy a block of the IP datagram.
@@ -935,6 +947,14 @@ alloc_new_skb:
 			/*
 			 *	Fill in the control structures
 			 */
+			
+			/* ABPS */
+			if (set_identifier_with_sk_buff(skb) == 0) {
+				printk(KERN_NOTICE "TED: skb_identifier set: %d\n",
+				       skb->sk_buff_identifier);
+			}
+			/* end ABPS */
+
 			skb->ip_summed = csummode;
 			skb->csum = 0;
 			skb_reserve(skb, hh_len);
