@@ -950,7 +950,7 @@ alloc_new_skb:
 			
 			/* ABPS */
 			if (set_identifier_with_sk_buff(skb) == 0) {
-				printk(KERN_NOTICE "TED: skb_identifier set: %d\n",
+				printk(KERN_WARNING "TED: skb_identifier set to %d\n",
 				       skb->sk_buff_identifier);
 			}
 			/* end ABPS */

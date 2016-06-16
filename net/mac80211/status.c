@@ -521,8 +521,8 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 	}
 	
 	/* ABPS */
-	/* tell the ABPS module to merge the response status infos
-	 * with the previous collected frame infos */
+	/* tell the ABPS module to merge the response status info
+	 * with the previous collected frame info */
 	if (skb && skb->dev && required_ip_local_error_notify(skb->sk)) {
 		struct ieee80211_hdr *hdr = NULL;
 		int ret;

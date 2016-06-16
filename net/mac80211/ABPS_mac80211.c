@@ -107,6 +107,10 @@ struct packet {
 #define FRAG_NOT_LAST 1
 /* fine forse da mettere in un header a parte */
 
+/* TODO: refactor everything as the following struct seems now useless.
+ *       To do so put the fragment integers inside the ABPS_info struct,
+ *       delete all the remaining IPdgramInfo stuff as the skb is used instead.
+ */
 typedef struct
 {
 	/* the first 5 parameters follow the order of the network */
@@ -142,86 +146,9 @@ struct ABPS_info
 static struct ABPS_info sentinel = { 0, { 0, 0, 0, 0, 0, 0 }, { 0, 0 }, { 0, 0 }, NULL };
 static struct timespec LastCheck_ABPS_info_list={0,0};
 
-
 /*
-
  * print the information saved into the ABPS_info
-
 */
-
-
-//static void ABPS_info_take_response(struct ABPS_info *packet_info)
-//{
-//
-//	if(1) {
-//		struct timeval tv;
-//		unsigned long msec;
-//
-//		do_gettimeofday(&tv);
-//		msec=((unsigned long)tv.tv_sec)*1000L + (tv.tv_usec/1000L);
-//		/*
-//		printk(KERN_DEBUG "*** VIC_ABPS *** info_take_response:"
-//		" IP ID %d time %d sec %d usec \n" ,
-//		ntohs(packet_info->datagram_info.ip_id),
-//		tv.tv_sec, tv.tv_usec );
-//		*/
-///*
-//		printk(KERN_DEBUG "*** MURDA VIC_ABPS *** :"
-//			" IP ID %20.0d 2time msec %0lu "
-//			"retry_count %d "
-//			"LOST %d "
-//			"info_take_response\n",
-//			ntohs(packet_info->datagram_info.ip_id),
-//			msec,
-//			packet_info->datagram_info.retry_count,
-//			packet_info->datagram_info.acked
-//			);
-// */
-//	}
-///*
-//	printk(KERN_DEBUG "*** MERDA VIC_ABPS *** :"
-//		" IP ID %0d difftimemsec %0lu "
-//		"retry_count %d "
-//		"LOST %d "
-//		"verdetto in info_take_response\n",
-//		ntohs(packet_info->datagram_info.ip_id),
-//		DIFFMSEC(
-//			packet_info->rx_time.tv_sec,
-//			packet_info->rx_time.tv_nsec,
-//			packet_info->tx_time.tv_sec,
-//			packet_info->tx_time.tv_nsec
-//			),
-//		packet_info->datagram_info.retry_count,
-//		packet_info->datagram_info.acked
-//		);
-//
-//
-//	printk(KERN_DEBUG "*** ABPS *** frame id : %d\n",
-//			le16_to_cpu(packet_info->id));
-//	printk(KERN_DEBUG "*** ABPS *** datagram id : %u\n",
-//            ntohl(packet_info->datagram_info.ip_id));
-//	/*
-//    printk(KERN_DEBUG "*** ABPS *** source port : %d\n",
-//			ntohs(packet_info->datagram_info.udp_sport));
-//	printk(KERN_DEBUG "*** ABPS *** more_fragment : %d\n",
-//			packet_info->datagram_info.more_fragment);
-//	printk(KERN_DEBUG "*** ABPS *** acked : %d\n",
-//			packet_info->datagram_info.acked);
-//	printk(KERN_DEBUG "*** ABPS *** retry_count : %d\n",
-//			packet_info->datagram_info.retry_count);
-//	printk(KERN_DEBUG "*** ABPS *** filtered_count : %lud\n",
-//			packet_info->datagram_info.filtered_count);
-//	printk(KERN_DEBUG "*** ABPS *** tx time : %ld , %ld \n",
-//			packet_info->tx_time.tv_sec, packet_info->tx_time.tv_nsec);
-//	printk(KERN_DEBUG "*** ABPS *** rx time : %ld , %ld \n",
-//			packet_info->rx_time.tv_sec, packet_info->rx_time.tv_nsec);
-//	printk(KERN_DEBUG "*** ABPS *** CALCOLOFORSEERRATO diff time : %ld , %ld \n",
-//			packet_info->rx_time.tv_sec - packet_info->tx_time.tv_sec,
-//  			packet_info->rx_time.tv_nsec - packet_info->tx_time.tv_nsec);
-//     */
-//}
-//#endif
-
 
 /*
 
@@ -438,11 +365,7 @@ static int get_udp_info(unsigned char *payload,
                         __be32 *daddr,
                         __be16 *sport,
                         __be16 *dport,
-                        __be16 *IPdatagram_id,
-                        /* the following parameters are used by the client 
-                         * to sort packages */
                         u16 *fragment_data_len,
-                        /* only data, not header */
                         u16 *fragment_offset,
                         u8 *more_fragment)
 {
@@ -487,8 +410,6 @@ static int get_udp_info(unsigned char *payload,
 		*sport = pudphdr->source;
 		*dport = pudphdr->dest;
 
-		//*IPdatagram_id = piphdr->id;
-
 #ifdef ABPS_DEBUG
 		printk(KERN_DEBUG "ABPS get_udp_info IP_tot_len %d\n",ntohs(piphdr->tot_len));
 #endif
@@ -508,17 +429,13 @@ static int get_udp_info(unsigned char *payload,
 	/* no udp */
 	return(0);
 }
-/* *** ABPS ***
- * End
- */
-
 
 /* Extract some information from the header ieee80211, ip and udp: sequence
  * number frame ieee, id datagram ip, source port udp... and put these in the
  * ABPS_info list if return 1 all it's ok.
  */
 
-int ABPS_extract_pkt_info_with_skb(struct ieee80211_hdr *hdr, struct sk_buff *skb)
+int ABPS_extract_pkt_info(struct ieee80211_hdr *hdr, struct sk_buff *skb)
 {
 	struct ABPS_info *packet_info;
 	struct ieee80211_hdr_4addr *hdr4 = (struct ieee80211_hdr_4addr *)hdr;
@@ -544,22 +461,22 @@ int ABPS_extract_pkt_info_with_skb(struct ieee80211_hdr *hdr, struct sk_buff *sk
 	p_IPDGInfo = kmalloc(sizeof (IPdgramInfo), GFP_ATOMIC);
 	packet_info = kmalloc(sizeof(struct ABPS_info), GFP_ATOMIC);
 
-	packet_info->id = hdr->seq_ctrl;
+	packet_info->id = hdr->seq_ctrl; /* 802.11 frame id */
 
 	fc = le16_to_cpu(hdr4->frame_ctl);
 	type = WLAN_FC_GET_TYPE(fc);
 	stype = WLAN_FC_GET_STYPE(fc);
 	sc = le16_to_cpu(hdr4->seq_ctl);
 	frag = WLAN_GET_SEQ_FRAG(sc);
-	/* OLD hdrlen = ieee80211_get_hdrlen(fc); */
 	hdrlen = ieee80211_hdrlen(fc);
 
 	stype &= ~IEEE80211_STYPE_QOS_DATA;
 
-	if (stype != IEEE80211_STYPE_DATA &&
-			stype != IEEE80211_STYPE_DATA_CFACK &&
-			stype != IEEE80211_STYPE_DATA_CFPOLL &&
-			stype != IEEE80211_STYPE_DATA_CFACKPOLL)
+	if (stype != IEEE80211_STYPE_DATA && 
+	    stype != IEEE80211_STYPE_DATA_CFACK &&
+	    stype != IEEE80211_STYPE_DATA_CFACK &&
+	    stype != IEEE80211_STYPE_DATA_CFPOLL &&
+	    stype != IEEE80211_STYPE_DATA_CFACKPOLL)
 		goto rx_dropped;
 
 
@@ -575,7 +492,6 @@ int ABPS_extract_pkt_info_with_skb(struct ieee80211_hdr *hdr, struct sk_buff *sk
 				&(p_IPDGInfo->daddr),
 				&(p_IPDGInfo->sport),
 				&(p_IPDGInfo->dport), 
-				&(p_IPDGInfo->ipdgramid),
 				&(p_IPDGInfo->fragment_data_len),
 				/* only data, not header */
 				&(p_IPDGInfo->fragment_offset),
@@ -628,84 +544,8 @@ rx_dropped:
 	return 0;
 }
 
-/* XXX: deprecated (replaced with ABPS_extract_pkt_info_with_skb*/
-int ABPS_extract_pkt_info(struct ieee80211_hdr *hdr)
-{
-	struct ABPS_info *packet_info;
-	struct ieee80211_hdr_4addr *hdr4 = (struct ieee80211_hdr_4addr *)hdr;
-	size_t hdrlen;
-	u16 fc, type, stype, sc;
-	unsigned int frag;
-	u8 *payload;
-	u8 *IPdatagram;
-	u16 ethertype;
-	int flen;
-	IPdgramInfo *p_IPDGInfo;
-	fc = le16_to_cpu(hdr->frame_control) ;
-	stype = WLAN_FC_GET_STYPE(fc);
-
-	switch (WLAN_FC_GET_TYPE(fc)) {
-		case IEEE80211_FTYPE_DATA:
-			break;
-			return 0;
-	}
-	p_IPDGInfo = kmalloc(sizeof (IPdgramInfo), GFP_ATOMIC);
-	packet_info = kmalloc(sizeof(struct ABPS_info), GFP_ATOMIC);
-
-	packet_info->id = hdr->seq_ctrl;
-
-	fc = le16_to_cpu(hdr4->frame_ctl);
-	type = WLAN_FC_GET_TYPE(fc);
-	stype = WLAN_FC_GET_STYPE(fc);
-	sc = le16_to_cpu(hdr4->seq_ctl);
-	frag = WLAN_GET_SEQ_FRAG(sc);
-
-	/* OLD hdrlen = ieee80211_get_hdrlen(fc); */
-	hdrlen = ieee80211_hdrlen(fc);
-
-	stype &= ~IEEE80211_STYPE_QOS_DATA;
-
-	if (stype != IEEE80211_STYPE_DATA &&
-			stype != IEEE80211_STYPE_DATA_CFACK &&
-			stype != IEEE80211_STYPE_DATA_CFPOLL &&
-			stype != IEEE80211_STYPE_DATA_CFACKPOLL)
-		goto rx_dropped;
-
-	payload = ((u8*)(hdr4)) + hdrlen;
-	ethertype = (payload[6] << 8) | payload[7];
-	if (ethertype == ETH_P_IP) {
-		int ris;
-		IPdatagram = ((u8*)hdr4) + hdrlen + 8;
-		flen = sizeof(struct iphdr) + sizeof(struct udphdr);
-		ris = get_udp_info(IPdatagram, flen, &(p_IPDGInfo->saddr),
-				&(p_IPDGInfo->daddr), &(p_IPDGInfo->sport),
-				&(p_IPDGInfo->dport), &(p_IPDGInfo->ipdgramid),
-				&(p_IPDGInfo->fragment_data_len),
-				/* only data, not header */
-				&(p_IPDGInfo->fragment_offset),
-				&(p_IPDGInfo->more_fragment));
-		if (ris > 0) {
-			/* set the fields of the ABPS_info that will be put in the
-			 * ABPS_info list*/
-			packet_info->datagram_info.ip_id = p_IPDGInfo->ipdgramid;
-			/* maybe ntohs, not sure */
-			packet_info->datagram_info.udp_sport = p_IPDGInfo->sport;
-			packet_info->datagram_info.fragment_data_len = p_IPDGInfo->fragment_data_len;
-			packet_info->datagram_info.fragment_offset = p_IPDGInfo->fragment_offset;
-			packet_info->datagram_info.more_fragment = p_IPDGInfo->more_fragment;
-			packet_info->tx_time = CURRENT_TIME;
-			ABPS_info_add(packet_info);
-			return(1);
-		}
-		return(0);
-	}
-rx_dropped:
-	return 0;
-}
-
 /*
- * join the information into the hdr with the correct ABPS_info
- int ABPS_info_response(struct sock *sk, struct ieee80211_hw *hw, struct ieee80211_hdr *hdr, struct ieee80211_tx_status *status)
+ * Join the information into the hdr with the correct ABPS_info
  */
 int ABPS_info_response(struct sock *sk, 
                        struct ieee80211_hw *hw,
@@ -799,28 +639,14 @@ int ABPS_info_response(struct sock *sk,
 		   estrearre dati da udp in caso di frammentazione, l'indirizzo ip invece non e'
 		   invece mai propagato fino all'utente */
 
-		if(!packet_info->is_ipv6) {
-			ip_local_error_notify(sk,
-					success,
-					packet_info->datagram_info.ip_id,
-					packet_info->datagram_info.fragment_data_len,
-					packet_info->datagram_info.fragment_offset,
-					packet_info->datagram_info.more_fragment,
-					packet_info->datagram_info.retry_count
-					);
-		} else {
-			ipv6_local_error_notify(sk,
-					success,
-					packet_info->datagram_info.ip_id,
-					packet_info->datagram_info.fragment_data_len,
-					packet_info->datagram_info.fragment_offset,
-					packet_info->datagram_info.more_fragment,
-					packet_info->datagram_info.retry_count);
-		}
+		ip_local_error_notify(sk, success,
+		                      packet_info->datagram_info.ip_id,
+				      packet_info->datagram_info.fragment_data_len,
+				      packet_info->datagram_info.fragment_offset,
+				      packet_info->datagram_info.more_fragment,
+				      packet_info->datagram_info.retry_count);
 
-		//#ifdef ABPS_DEBUG
-		//		ABPS_info_take_response(packet_info);
-		//#endif
+
 		ABPS_info_remove(packet_info);
 		return(1);
 	}

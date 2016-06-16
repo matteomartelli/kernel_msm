@@ -474,12 +474,9 @@ extern void	ip_local_error(struct sock *sk, int err, __be32 daddr, __be16 dport,
 /* ABPS */
 extern int required_ip_local_error_notify(struct sock *sk);
 extern void ip_local_error_notify(struct sock *sk,
-                                  int sent, uint32_t IPdgramId,
-                                  u16 fragment_dat_len, /* only data, not header */
+                                  int sent, uint32_t msg_identifier,
+                                  u16 fragment_length, /* only data, not header */
                                   u16 fragment_offset, u8 more_fragment, u8 retry_count);
-extern void ipv6_local_error_notify(struct sock *sk, int sent, uint32_t datagram_identifier,
-                                    u16 fragment_data_length, u16 fragment_offset,
-									u8 more_fragment, u8 retry_count);
 /* end ABPS */
 
 

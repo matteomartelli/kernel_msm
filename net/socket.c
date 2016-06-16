@@ -3391,7 +3391,7 @@ int udp_cmsg_send(struct msghdr *msg, uint32_t *is_identifier_required,
 		return -EFAULT;
 	}
 
-	for (cmsg=CMGS_FIRSTHDR(msg); cmsg; cmsg=CMSG_NXTHDR(msg, cmsg)) {
+	for (cmsg=CMSG_FIRSTHDR(msg); cmsg; cmsg=CMSG_NXTHDR(msg, cmsg)) {
 		
 		if (!CMSG_OK(msg, cmsg)) {
 			printk(KERN_NOTICE "TED: CMSG not OK in udp_cmsg_send\n");
@@ -3401,7 +3401,7 @@ int udp_cmsg_send(struct msghdr *msg, uint32_t *is_identifier_required,
 		if (cmsg->cmsg_level != SOL_UDP)
 			continue;
 
-		if (cmsg->cmsg_type == ABPS_CMGS_TYPE) {
+		if (cmsg->cmsg_type == ABPS_CMSG_TYPE) {
 			
 			memcpy(pointer_to_identifier, (USER_P_UINT32)CMSG_DATA(cmsg),
 			       sizeof(USER_P_UINT32));

@@ -970,7 +970,7 @@ int udpv6_sendmsg(struct kiocb *iocb, struct sock *sk,
 	int (*getfrag)(void *, char *, int, int, int, struct sk_buff *);
 
 	/* ABPS */
-	struct sk_buff *skb;
+	struct sk_buff *skb = NULL;
 	USER_P_UINT32 pointer_to_identifier = NULL;
 	uint32_t is_identifier_required = 0;
 	/* end ABPS */
@@ -1226,6 +1226,7 @@ do_append_data:
 out:
 
 	/* ABPS */
+	/* XXX: Is this needed? Seems useless. Check udp_cmsg_send. . Check udp_cmsg_send.*/
 	/* Set the identifier in user space */
 	if (is_identifier_required && skb)
 		put_user(skb->sk_buff_identifier, pointer_to_identifier);

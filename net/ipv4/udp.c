@@ -814,6 +814,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	USER_P_UINT32 pointer_to_identifier = NULL;
 	int skb_is_null = 0;
 	uint32_t is_identifier_required = 0;
+	skb = NULL;
 	/* end ABPS */
 
 
@@ -1029,6 +1030,7 @@ do_append_data:
 
 out:
 	/* ABPS */
+	/* XXX: Is this needed? Seems useless. Check udp_cmsg_send. */
 	if (is_identifier_required && !skb_is_null)
 		put_user(skb->sk_buff_identifier, pointer_to_identifier);
 	/* end ABPS */

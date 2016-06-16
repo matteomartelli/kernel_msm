@@ -1088,6 +1088,105 @@ int compat_ip_setsockopt(struct sock *sk, int level, int optname,
 EXPORT_SYMBOL(compat_ip_setsockopt);
 #endif
 
+
+/* ABPS */
+/*  
+ *  The following is used in the mac80211 module in order
+ *  to decide whether or not to use TED notifications on the current socket.
+ *  The decision depends on the user socket options (IPPPROTO_IP IP_RECVERR).
+ */
+int required_ip_local_error_notify(struct sock *sk)
+{
+	struct inet_sock *inet = NULL;
+	if (sk == NULL) {
+		printk(KERN_WARNING "TED: null sk in %s\n", __FUNCTION__);
+		return 0;
+	}
+	inet = inet_sk(sk);
+	
+	if (inet == NULL) {
+		printk(KERN_WARNING "TED: null inet %s\n", __FUNCTION__);
+		return 0;
+	}
+
+	if (!inet->recverr) {
+		printk(KERN_WARNING "TED: null inet->recverr in %s:"
+		       "socket is not able to receive error messages.\n",
+		       __FUNCTION__);
+		return 0;
+	}
+
+	return 1;
+}
+
+/* 
+ *  Store 802.11 frame information into the corresponding socket error struct.
+ *  This will be used by ABPS when a response related to the 802.11 frame occurs.
+ */
+void ip_local_error_notify(struct sock *sk, int sent, uint32_t msg_identifier,
+			   u16 fragment_length, u16 fragment_offset,
+			   u8 more_fragment, u8 retry_count)
+{
+	struct inet_sock *inet = NULL;
+	struct sock_exterr_skb *serr;
+	struct sk_buff *skb;
+	
+	if (sk == NULL) {
+		printk(KERN_WARNING "TED: null sk in %s\n", __FUNCTION__);
+		return;
+	}
+	inet = inet_sk(sk);
+	
+	if (inet == NULL) {
+		printk(KERN_WARNING "TED: null inet %s\n", __FUNCTION__);
+		return;
+	}
+
+	if (!inet->recverr) 
+		return;
+
+	skb = alloc_skb(sizeof(struct iphdr), GFP_ATOMIC);
+
+	if (!skb) {
+		printk(KERN_WARNING "TED: alloc failed in %s", __FUNCTION__);
+		return;
+	}
+	
+	skb_put(skb, sizeof(struct iphdr));
+	skb_reset_network_header(skb);
+
+	serr = SKB_EXT_ERR(skb);
+	if (!serr) {
+		printk(KERN_WARNING "TED: null serr in %s", __FUNCTION__);
+		return;
+	}
+
+	serr->ee.ee_errno = 0; /* success */
+	serr->ee.ee_origin = SO_EE_ORIGIN_LOCAL_NOTIFY;
+	serr->ee.ee_type = sent; /* 1 sent, 0 not sent */
+	serr->ee.ee_pad = 0;
+	serr->ee.ee_code = more_fragment;
+	serr->ee.ee_retry_count = retry_count;
+
+	/* identifier of the related trasport layer message */
+	serr->ee.ee_info = msg_identifier;
+
+	/*  ee_data is a 32 bit word:
+	 *  MSB (16 bit fragment length , 16 bit fragment offset) LSB */
+	serr->ee.ee_data = (((u32)fragment_length)<<16) + fragment_offset;
+
+	__skb_pull(skb, skb_tail_pointer(skb) - skb->data);
+	skb_reset_transport_header(skb);
+
+	if (sock_queue_err_skb(sk, skb))
+		kfree_skb(skb);
+}
+
+EXPORT_SYMBOL(required_ip_local_error_notify);
+EXPORT_SYMBOL(ip_local_error_notify);
+/* end ABPS */
+
+
 /*
  *	Get the options. Note for future reference. The GET of IP options gets
  *	the _received_ ones. The set sets the _sent_ ones.
