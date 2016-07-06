@@ -19,27 +19,6 @@
 #include "led.h"
 #include "wme.h"
 
-/* ABPS */
-#include <net/ip.h>
-#include "ABPS_mac80211.h"
-
-/*Developed by Lorenzo Sorace and VIC, may 2009 */
-static void (*ABPSmonitor_statistic_handler)(
-                                             struct ieee80211_hw *hw,
-                                             struct sta_info *sta,
-                                             struct ieee80211_hdr *hdr,
-                                             struct ieee80211_tx_info *info,
-                                             struct ieee80211_local *local) = NULL;
-
-void ABPSmonitor_set_handler(void * ptr)
-{
-    ABPSmonitor_statistic_handler = ptr;
-}
-
-EXPORT_SYMBOL(ABPSmonitor_set_handler);
-/* end ABPS */
-
-
 void ieee80211_tx_status_irqsafe(struct ieee80211_hw *hw,
 				 struct sk_buff *skb)
 {
@@ -488,6 +467,18 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 		}
 	}
 
+	/* TED */
+	/* Merge the response status info with the frame info 
+	 * previoulsy collected during the transmission phase.
+	 * Do this only if the socket was set with IP_RECVERR option
+	 * and a pointer for the transport packet id was reserverd in the 
+	 * user space cmsg struct during the sendmsg call. */
+	if (skb->ted_notify) {
+		acked = info->flags & IEEE80211_TX_STAT_ACK;
+		ted_info_response(skb, hw, hdr, info, acked, retry_count);
+	}
+	/* end TED */
+
 	rcu_read_unlock();
 
 	ieee80211_led_tx(local, 0);
@@ -520,27 +511,6 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 			local->dot11FailedCount++;
 	}
 	
-	/* ABPS */
-	/* tell the ABPS module to merge the response status info
-	 * with the previous collected frame info */
-	if (skb && skb->dev && required_ip_local_error_notify(skb->sk)) {
-		struct ieee80211_hdr *hdr = NULL;
-		int ret;
-		sdata = IEEE80211_DEV_TO_SUB_ID(skb->dev);
-		if (sdata) {
-			hdr = (struct ieee80211_hdr *) skb->data;
-			ret = ABPS_info_response(skb->sk, hw, hdr, info, sdata);
-			printk(KERN_DEBUG "ABPS ieee80211_tx_status:"
-			       "ABPS_info_respose value %d \n", ret);
-		} else {
-			printk(KERN_NOTICE "TED ieee80211_tx_status: null sdata\n");
-		}
-		sdata = NULL;
-	} else if (skb->dev == NULL) {
-		printk(KERN_NOTICE "TED ieee80211_tx_status: null skb->dev\n");
-	}	
-	/* end ABPS */
-
 	if (ieee80211_is_nullfunc(fc) && ieee80211_has_pm(fc) &&
 	    (local->hw.flags & IEEE80211_HW_REPORTS_TX_ACK_STATUS) &&
 	    !(info->flags & IEEE80211_TX_CTL_INJECTED) &&
@@ -591,6 +561,7 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 		struct sk_buff *ack_skb;
 		unsigned long flags;
 
+
 		spin_lock_irqsave(&local->ack_status_lock, flags);
 		ack_skb = idr_find(&local->ack_status_frames,
 				   info->ack_frame_id);
@@ -599,10 +570,13 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 				   info->ack_frame_id);
 		spin_unlock_irqrestore(&local->ack_status_lock, flags);
 
+
 		/* consumes ack_skb */
-		if (ack_skb)
+		if (ack_skb) {
 			skb_complete_wifi_ack(ack_skb,
 				info->flags & IEEE80211_TX_STAT_ACK);
+			
+		}
 	}
 
 	/* this was a transmitted frame, but now we want to reuse it */

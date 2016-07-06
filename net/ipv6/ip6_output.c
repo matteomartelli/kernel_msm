@@ -744,9 +744,10 @@ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
 						htons(frag->len -
 						      sizeof(struct ipv6hdr));
 				ip6_copy_metadata(frag, skb);
-				/* ABPS */
-				frag->sk_buff_identifier = skb->sk_buff_identifier;
-				/* end ABPS */
+				/* TED */
+				frag->transport_pktid = skb->transport_pktid;
+				frag->ted_notify = skb->ted_notify;
+				/* end TED */
 			}
 
 			err = output(skb);
@@ -834,11 +835,10 @@ slow_path:
 		 *	Set up data on packet
 		 */
 
-		/* ABPS */
-		frag->sk_buff_identifier = skb->sk_buff_identifier;
-		printk(KERN_NOTICE "Ted: new IPv6 fragment with msg id: %d",
-		       frag->sk_buff_identifier = skb->sk_buff_identifier);
-		/* end ABPS */
+		/* TED */
+		frag->transport_pktid = skb->transport_pktid;
+		frag->ted_notify = skb->ted_notify;
+		/* end TED */
 
 
 		ip6_copy_metadata(frag, skb);
@@ -1423,12 +1423,6 @@ alloc_new_skb:
 			/*
 			 *	Fill in the control structures
 			 */
-
-			/* ABPS */
-			if (set_identifier_with_sk_buff(skb) == 0)
-				printk(KERN_NOTICE "TED: skb identifier set: %d\n",
-				       skb->sk_buff_identifier);
-			/* end ABPS */
 
 			skb->ip_summed = csummode;
 			skb->csum = 0;

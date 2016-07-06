@@ -18,7 +18,7 @@ struct __kernel_sockaddr_storage {
 				/* _SS_MAXSIZE value minus size of ss_family */
 } __attribute__ ((aligned(_K_SS_ALIGNSIZE)));	/* force desired alignment */
 
-#define ABPS_CMSG_TYPE 111 /* ABPS */
+#define TED_CMSG_TYPE 111 /* TED */
 
 #ifdef __KERNEL__
 
@@ -91,11 +91,10 @@ struct cmsghdr {
         int		cmsg_type;	/* protocol-specific type */
 };
 
-/* ABPS */
-typedef uint32_t __user * USER_P_UINT32;
-extern int udp_cmsg_send(struct msghdr *msg, uint32_t *is_identifier_required,
-                         USER_P_UINT32 *pointer_to_identifier);
-/* end ABPS */
+/* TED */
+extern uint32_t get_transport_pktid(void);
+extern int putuser_transport_pktid(uint32_t transport_pktid, struct msghdr *msg);
+/* end TED */
 
 /*
  *	Ancillary data object information MACROS

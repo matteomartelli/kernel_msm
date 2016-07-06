@@ -496,7 +496,12 @@ struct sk_buff {
 	unsigned int		truesize;
 	atomic_t		users;
 
-	uint32_t sk_buff_identifier; /* ABPS */
+	/* TED
+	 * TODO: we could use SO_WIFI_STATUS option of the SOL_SOCKET 
+	 * for a more specific use and a better control. */
+	uint32_t 		transport_pktid; 
+	u8                      ted_notify:1;
+	/* end TED */
 };
 
 #ifdef __KERNEL__
@@ -2562,8 +2567,6 @@ static inline bool skb_is_recycleable(const struct sk_buff *skb, int skb_size)
 
 	return true;
 }
-
-int set_identifier_with_sk_buff(struct sk_buff *skb); /* ABPS */
 
 #endif	/* __KERNEL__ */
 #endif	/* _LINUX_SKBUFF_H */

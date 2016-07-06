@@ -471,13 +471,16 @@ extern void	ip_icmp_error(struct sock *sk, struct sk_buff *skb, int err,
 			      __be16 port, u32 info, u8 *payload);
 extern void	ip_local_error(struct sock *sk, int err, __be32 daddr, __be16 dport,
 			       u32 info);
-/* ABPS */
+/* TED */
 extern int required_ip_local_error_notify(struct sock *sk);
 extern void ip_local_error_notify(struct sock *sk,
-                                  int sent, uint32_t msg_identifier,
-                                  u16 fragment_length, /* only data, not header */
-                                  u16 fragment_offset, u8 more_fragment, u8 retry_count);
-/* end ABPS */
+				  uint32_t transport_pktid,
+				  u16 fragment_length, /* only data, not header */
+				  u16 fragment_offset,
+				  u8 more_fragment,
+				  u8 acked,
+				  u8 retry_count);
+/* end TED */
 
 
 

@@ -3280,36 +3280,3 @@ void __skb_warn_lro_forwarding(const struct sk_buff *skb)
 			   " while LRO is enabled\n", skb->dev->name);
 }
 EXPORT_SYMBOL(__skb_warn_lro_forwarding);
-
-
-
-/* ABPS */
-static uint32_t global_identifier = 0;
-
-uint32_t get_global_identifier(void)
-{
-	static DEFINE_SPINLOCK(lock);
-	uint32_t identifier;
-	unsigned long flags;
-
-	spin_lock_irqsave(&lock, flags);
-	identifier = global_identifier++;
-	spin_unlock_irqrestore(&lock, flags);
-
-	return identifier;
-}
-
-int set_identifier_with_sk_buff(struct sk_buff *skb)
-{
-
-	if (!skb) {
-		printk(KERN_NOTICE "TED: invalid skb in set_identifier_with_sk_buff()\n");
-		return 1;
-	}
-		
-	skb->sk_buff_identifier = get_global_identifier();
-	
-	return 0;
-}
-EXPORT_SYMBOL(set_identifier_with_sk_buff);
-/* end ABPS */

@@ -34,10 +34,6 @@
 #include "wme.h"
 #include "rate.h"
 
-/* ABPS */
-#include <net/ip.h>
-#include "ABPS_mac80211.h"
-
 /* misc utils */
 
 static __le16 ieee80211_duration(struct ieee80211_tx_data *tx,
@@ -803,11 +799,6 @@ ieee80211_tx_h_sequence(struct ieee80211_tx_data *tx)
 	u8 *qc;
 	int tid;
 
-	printk(KERN_NOTICE, "TED: in ieee80211_tx_h_sequence\n"); //ABPS_DEBUG 
-#ifdef CONFIG_MAC80211_VERBOSE_PS_DEBUG
-	wiphy_debug(tx->local->hw.wiphy, "TED TED TED\n",
-		    purged);
-#endif
 	/*
 	 * Packet injection may want to control the sequence
 	 * number, if we have no matching interface then we
@@ -857,20 +848,10 @@ ieee80211_tx_h_sequence(struct ieee80211_tx_data *tx)
 
 	/* Increase the sequence number. */
 	*seq = (*seq + 0x10) & IEEE80211_SCTL_SEQ;
-
-	printk(KERN_WARNING, "TED: %s before checkpoint\n", __FUNCTION__); //ABPS_DEBUG 
-	/* ABPS */
-	if (tx->skb && required_ip_local_error_notify(tx->skb->sk)) {
-		if (ABPS_extract_pkt_info(hdr, tx->skb)) 
-			printk(KERN_NOTICE "TED: added new 802.11 frame with msg id %d\n",
-			       tx->skb->sk_buff_identifier);
-		else
-			printk(KERN_NOTICE "TED: can't add new 802.11 frame with msg id %d\n",
-			       tx->skb->sk_buff_identifier);
-	}
-	/* end ABPS */
-
-
+	
+	if (tx->skb && tx->skb->ted_notify)
+		ted_extract_pkt_info(tx->skb, hdr); /* TED */	
+	
 	return TX_CONTINUE;
 }
 

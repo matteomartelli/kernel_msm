@@ -3710,4 +3710,12 @@ int ieee80211_add_srates_ie(struct ieee80211_vif *vif, struct sk_buff *skb);
 
 int ieee80211_add_ext_srates_ie(struct ieee80211_vif *vif,
 				struct sk_buff *skb);
+
+/* TED */
+int ted_extract_pkt_info(struct sk_buff *skb, struct ieee80211_hdr *hdr);
+int ted_info_response(struct sk_buff *skb, struct ieee80211_hw *hw,
+		      struct ieee80211_hdr *hdr, struct ieee80211_tx_info *info,
+		      u8 acked, int retry_count);
+/* end TED */
+
 #endif /* MAC80211_H */

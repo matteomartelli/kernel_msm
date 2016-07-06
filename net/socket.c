@@ -3379,44 +3379,60 @@ int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how)
 }
 EXPORT_SYMBOL(kernel_sock_shutdown);
 
-/* ABPS */
-int udp_cmsg_send(struct msghdr *msg, uint32_t *is_identifier_required,
-                  USER_P_UINT32 *pointer_to_identifier)
+/* TED */
+/* Global identifier of the outgoing transport layer packets */
+static uint32_t transport_pktid = 0;
+
+/* Increment and return the global transport layer packet identifier. 
+ * XXX: used in UDP only for now. */
+uint32_t get_transport_pktid(void)
+{
+	static DEFINE_SPINLOCK(lock);
+	uint32_t identifier;
+	unsigned long flags;
+
+	spin_lock_irqsave(&lock, flags);
+	identifier = transport_pktid++;
+	spin_unlock_irqrestore(&lock, flags);
+
+	return identifier;
+}
+
+EXPORT_SYMBOL(get_transport_pktid);
+/* Copy the transport layer packet identifier from the sk_buff struct into 
+ * the user space pointer provided by the control message. */
+int putuser_transport_pktid(uint32_t transport_pktid, struct msghdr *msg)
 {
 	struct cmsghdr *cmsg;
-	*is_identifier_required = 0;
-	
-	if (pointer_to_identifier == NULL) {
-		printk(KERN_NOTICE "TED: null pointer_to_identifier in udp_cmsg_send\n");
-		return -EFAULT;
-	}
+
+	if (!msg->msg_controllen)
+		goto skip;
 
 	for (cmsg=CMSG_FIRSTHDR(msg); cmsg; cmsg=CMSG_NXTHDR(msg, cmsg)) {
 		
 		if (!CMSG_OK(msg, cmsg)) {
-			printk(KERN_NOTICE "TED: CMSG not OK in udp_cmsg_send\n");
+			pr_notice("TED: %s: not CMSG_OK\n", __FUNCTION__);
 			return -EINVAL;
 		}
 
 		if (cmsg->cmsg_level != SOL_UDP)
 			continue;
 
-		if (cmsg->cmsg_type == ABPS_CMSG_TYPE) {
+		if (cmsg->cmsg_type == TED_CMSG_TYPE) {
 			
-			memcpy(pointer_to_identifier, (USER_P_UINT32)CMSG_DATA(cmsg),
-			       sizeof(USER_P_UINT32));
+			put_user(transport_pktid,
+			         (uint32_t __user *)CMSG_DATA(cmsg)); 
+			pr_notice("TED: %s: transport packet id set to %d",
+			          __FUNCTION__, transport_pktid);
 
-			printk(KERN_NOTICE "udp_cmsg_send:"
-			       "pointer_to_identifier just set to %p\n", pointer_to_identifier);
-
-
-			*is_identifier_required = 1;
-
-			return 0;
+			return 1;
 		}
 	}
+skip:
 	return 0;
 }
 
-EXPORT_SYMBOL(udp_cmsg_send);
-/* end ABPS */
+EXPORT_SYMBOL(putuser_transport_pktid);
+
+
+/* end TED */

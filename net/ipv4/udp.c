@@ -720,6 +720,9 @@ static int udp_send_skb(struct sk_buff *skb, struct flowi4 *fl4)
 	int len = skb->len - offset;
 	__wsum csum = 0;
 
+
+
+
 	/*
 	 * Create a UDP header
 	 */
@@ -809,16 +812,6 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	struct sk_buff *skb;
 	struct ip_options_data opt_copy;
 
-	
-	/* ABPS */
-	USER_P_UINT32 pointer_to_identifier = NULL;
-	int skb_is_null = 0;
-	uint32_t is_identifier_required = 0;
-	skb = NULL;
-	/* end ABPS */
-
-
-
 	if (len > 0xFFFF)
 		return -EMSGSIZE;
 
@@ -884,17 +877,6 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	err = sock_tx_timestamp(sk, &ipc.tx_flags);
 	if (err)
 		return err;
-
-	/* ABPS */
-	if (msg->msg_controllen) {
-		err = udp_cmsg_send(msg, &is_identifier_required, &pointer_to_identifier);
-		if (err) {
-			printk(KERN_NOTICE "TED: error calling udp_cmsg_send.\n");
-			return err;
-		}
-	}
-	/* end ABPS */
-	
 
 	if (msg->msg_controllen) {
 		err = ip_cmsg_send(sock_net(sk), msg, &ipc);
@@ -988,10 +970,23 @@ back_from_confirm:
 				  sizeof(struct udphdr), &ipc, &rt,
 				  msg->msg_flags);
 		err = PTR_ERR(skb);
-		if (skb && !IS_ERR(skb))
+		if (skb && !IS_ERR(skb)) {
+			/* TED  */
+			/* Increment and copy the id of the current 
+			 * transport layer packet 
+			 * into its corresponding skb field. */
+			skb->transport_pktid = get_transport_pktid();
+
+			/* Copy the transport packet id from  sk_buff struct 
+			 * into  the user space pointer. 
+			 * Also mark the sk_buff as traceble by TED. */
+			if (putuser_transport_pktid(skb->transport_pktid, msg) 
+			    && inet->recverr)
+				skb->ted_notify = 1;
+			/* end TED */
 			err = udp_send_skb(skb, fl4);
-		else
-			skb_is_null = 1; /* ABPS */
+		}
+		
 		goto out;
 	}
 
@@ -1029,12 +1024,6 @@ do_append_data:
 	release_sock(sk);
 
 out:
-	/* ABPS */
-	/* XXX: Is this needed? Seems useless. Check udp_cmsg_send. */
-	if (is_identifier_required && !skb_is_null)
-		put_user(skb->sk_buff_identifier, pointer_to_identifier);
-	/* end ABPS */
-
 	ip_rt_put(rt);
 	if (free)
 		kfree(ipc.opt);

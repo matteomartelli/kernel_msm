@@ -1089,7 +1089,7 @@ EXPORT_SYMBOL(compat_ip_setsockopt);
 #endif
 
 
-/* ABPS */
+/* TED */
 /*  
  *  The following is used in the mac80211 module in order
  *  to decide whether or not to use TED notifications on the current socket.
@@ -1098,34 +1098,27 @@ EXPORT_SYMBOL(compat_ip_setsockopt);
 int required_ip_local_error_notify(struct sock *sk)
 {
 	struct inet_sock *inet = NULL;
-	if (sk == NULL) {
-		printk(KERN_WARNING "TED: null sk in %s\n", __FUNCTION__);
-		return 0;
-	}
+
 	inet = inet_sk(sk);
 	
 	if (inet == NULL) {
-		printk(KERN_WARNING "TED: null inet %s\n", __FUNCTION__);
+		printk(KERN_ERR "TED: %s: null inet socket\n", __FUNCTION__);
 		return 0;
 	}
 
-	if (!inet->recverr) {
-		printk(KERN_WARNING "TED: null inet->recverr in %s:"
-		       "socket is not able to receive error messages.\n",
-		       __FUNCTION__);
+	if (!inet->recverr)
 		return 0;
-	}
 
 	return 1;
 }
 
 /* 
  *  Store 802.11 frame information into the corresponding socket error struct.
- *  This will be used by ABPS when a response related to the 802.11 frame occurs.
+ *  This will be used by TED when a response related to the 802.11 frame occurs.
  */
-void ip_local_error_notify(struct sock *sk, int sent, uint32_t msg_identifier,
+void ip_local_error_notify(struct sock *sk, uint32_t transport_pktid,
 			   u16 fragment_length, u16 fragment_offset,
-			   u8 more_fragment, u8 retry_count)
+			   u8 more_fragment, u8 acked, u8 retry_count)
 {
 	struct inet_sock *inet = NULL;
 	struct sock_exterr_skb *serr;
@@ -1163,13 +1156,13 @@ void ip_local_error_notify(struct sock *sk, int sent, uint32_t msg_identifier,
 
 	serr->ee.ee_errno = 0; /* success */
 	serr->ee.ee_origin = SO_EE_ORIGIN_LOCAL_NOTIFY;
-	serr->ee.ee_type = sent; /* 1 sent, 0 not sent */
+	serr->ee.ee_type = acked;
 	serr->ee.ee_pad = 0;
 	serr->ee.ee_code = more_fragment;
 	serr->ee.ee_retry_count = retry_count;
 
-	/* identifier of the related trasport layer message */
-	serr->ee.ee_info = msg_identifier;
+	/* identifier of the related trasport layer pakcket */
+	serr->ee.ee_info = transport_pktid;
 
 	/*  ee_data is a 32 bit word:
 	 *  MSB (16 bit fragment length , 16 bit fragment offset) LSB */
@@ -1177,14 +1170,15 @@ void ip_local_error_notify(struct sock *sk, int sent, uint32_t msg_identifier,
 
 	__skb_pull(skb, skb_tail_pointer(skb) - skb->data);
 	skb_reset_transport_header(skb);
-
+	
+	printk(KERN_NOTICE "ted: before sock_queue_err");
 	if (sock_queue_err_skb(sk, skb))
 		kfree_skb(skb);
 }
 
 EXPORT_SYMBOL(required_ip_local_error_notify);
 EXPORT_SYMBOL(ip_local_error_notify);
-/* end ABPS */
+/* end TED */
 
 
 /*
